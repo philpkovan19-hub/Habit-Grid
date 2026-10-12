@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HabitGrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --paper: #f7f5f2;
+    --ink: #0a0a0a;
+    --body: #4a4a4a;
+    --line: #0a0a0a;
+    --muted: #8a8a8a;
+    --cell-0: #eae7e0;
+    --cell-1: #2ea043;
+    --cell-2: #40b752;
+    --cell-3: #4ec863;
+    --cell-4: #5cd975;
+    --err: #b3261e;
+    --ok: #2ea043;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper);
+    color: var(--body);
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .heading { color: var(--ink); font-weight: 700; margin: 0; letter-spacing: 0.04em; text-transform: uppercase; }
+  a { color: var(--ink); }
+  button, input, select {
+    font-family: inherit;
+    font-size: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    padding: 8px 12px;
+    outline: none;
+  }
+  button { cursor: pointer; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+  button:hover { background: var(--ink); color: var(--paper); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  input { background: #fff; }
+  input:focus { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 24px;
+  }
+  .wordmark { font-weight: 700; font-size: 15px; letter-spacing: 0.16em; color: var(--ink); }
+  .wallet-info { display: flex; gap: 12px; align-items: center; }
+  .wallet-info .addr { font-size: 11px; color: var(--body); }
+  .net-pill { border: 1px solid var(--line); padding: 4px 8px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .hero { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 24px; }
+  .hero h1 { font-size: 28px; letter-spacing: 0.06em; }
+  .hero p { margin: 8px 0 0; color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .stat {
+    padding: 16px;
+    border-right: 1px solid var(--line);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .stat .value { font-size: 28px; font-weight: 700; color: var(--ink); margin-top: 4px; }
+
+  .create-row {
+    display: grid; grid-template-columns: 1fr 2fr auto;
+    border: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .create-row input {
+    border: none; border-right: 1px solid var(--line);
+    padding: 12px 14px; border-radius: 0;
+    background: var(--paper);
+  }
+  .create-row input:last-of-type { border-right: 1px solid var(--line); }
+  .create-row button { border: none; padding: 12px 20px; background: var(--ink); color: var(--paper); }
+  .create-row button:hover { background: #333; }
+
+  .tabs { display: flex; border: 1px solid var(--line); margin-bottom: 16px; width: fit-content; }
+  .tab { padding: 8px 16px; border-right: 1px solid var(--line); cursor: pointer; font-weight: 700; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: var(--paper); color: var(--ink); }
+  .tab:last-child { border-right: none; }
+  .tab.active { background: var(--ink); color: var(--paper); }
+
+  .habit {
+    border: 1px solid var(--line);
+    margin-bottom: 16px;
+    background: var(--paper);
+  }
+  .habit-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  }
+  .habit-name { font-weight: 700; color: var(--ink); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .habit-desc { color: var(--body); font-size: 12px; margin-top: 4px; }
+  .habit-owner { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; }
+  .habit-actions button { border: 1px solid var(--line); padding: 8px 14px; background: var(--ink); color: var(--paper); }
+  .habit-actions button.done { background: var(--paper); color: var(--muted); border-color: var(--line); }
+
+  .grid-wrap { padding: 16px; overflow-x: auto; }
+  .grid-svg { display: block; }
+  .grid-legend { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .legend-swatch { width: 11px; height: 11px; border: 1px solid var(--line); }
+
+  .habit-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+  .habit-stat { padding: 12px 16px; border-right: 1px solid var(--line); }
+  .habit-stat:last-child { border-right: none; }
+  .habit-stat .lbl { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .habit-stat .val { font-size: 18px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+
+  .empty { border: 1px dashed var(--line); padding: 48px 16px; text-align: center; font-size: 22px; color: var(--muted); letter-spacing: 0.08em; }
+
+  #toast-root { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+  .toast {
+    background: var(--ink); color: var(--paper);
+    padding: 10px 14px 10px 16px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ok);
+    font-size: 12px; min-width: 260px;
+    letter-spacing: 0.04em;
+  }
+  .toast.err { border-left-color: var(--err); }
+
+  #tooltip {
+    position: fixed; pointer-events: none;
+    background: var(--ink); color: var(--paper);
+    padding: 4px 8px; font-size: 11px;
+    border: 1px solid var(--line);
+    display: none;
+    letter-spacing: 0.06em;
+    z-index: 50;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 16px 24px; margin-top: 40px;
+    font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    display: flex; justify-content: space-between;
+  }
+
+  @media (max-width: 720px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-bottom: 1px solid var(--line); }
+    .create-row { grid-template-columns: 1fr; }
+    .create-row input { border-right: none; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wordmark">HABITGRID</div>
+  <div class="wallet-info">
+    <span class="net-pill" id="netpill">DISCONNECTED</span>
+    <span class="addr" id="acct"></span>
+    <button id="connectBtn">CONNECT WALLET</button>
+  </div>
+</div>
+
+<main>
+  <div class="hero">
+    <h1>TRACK. CHECK IN. NEVER MISS.</h1>
+    <p>// on-chain habit grid — one check-in per day per habit</p>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="label">Total Habits</div><div class="value" id="s_total">—</div></div>
+    <div class="stat"><div class="label">Total Check-Ins</div><div class="value" id="s_checkins">—</div></div>
+    <div class="stat"><div class="label">Your Habits</div><div class="value" id="s_mine">—</div></div>
+    <div class="stat"><div class="label">Best Streak</div><div class="value" id="s_best">—</div></div>
+  </div>
+
+  <div class="create-row">
+    <input id="in_name" placeholder="HABIT NAME (1-64)" maxlength="64" />
+    <input id="in_desc" placeholder="OPTIONAL DESCRIPTION (0-200)" maxlength="200" />
+    <button id="createBtn">CREATE &crarr;</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="mine">MY HABITS</div>
+    <div class="tab" data-tab="all">ALL HABITS</div>
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<footer>
+  <div>HABITGRID / BOT CHAIN</div>
+  <div id="foot_addr">CONTRACT: —</div>
+</footer>
+
+<div id="tooltip"></div>
+<div id="toast-root"></div>
+
+<script>
+  // ============================================================
+  // CONFIG
+  // ============================================================
+  const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+  // TESTNET (default). To switch to mainnet, replace these 5 values:
+  //   CHAIN_ID_HEX = "0x2A5", CHAIN_ID_DEC = 677,
+  //   RPC_URL = "https://rpc.botchain.ai", CHAIN_NAME = "BOT Chain",
+  //   EXPLORER = "https://explorer.botchain.ai"
+  const CHAIN_ID_HEX = "0x3C8";
+  const CHAIN_ID_DEC = 968;
+  const RPC_URL = "https://rpc.bohr.life";
+  const CHAIN_NAME = "BOT Chain Testnet";
+  const EXPLORER = "https://explorer.bohr.life";
+
+  const NATIVE = { name: "BOT", symbol: "BOT", decimals: 18 };
+
+  const ABI = [
+    "function createFee() view returns (uint256)",
+    "function habitCount() view returns (uint256)",
+    "function getCurrentDay() view returns (uint256)",
+    "function createHabit(string name, string description) payable returns (uint256)",
+    "function checkIn(uint256 habitId)",
+    "function getHabit(uint256 habitId) view returns (address,string,string,uint256,uint256,uint256,uint256,uint256)",
+    "function didCheckIn(uint256 habitId, uint256 dayIdx) view returns (bool)",
+    "function getCheckIns(uint256 habitId, uint256 startDay, uint256 endDay) view returns (bool[])",
+    "function getHabitsByOwner(address) view returns (uint256[])",
+    "function getRecent(uint256 startOffset, uint256 limit) view returns (uint256[])",
+    "event HabitCreated(uint256 indexed habitId, address indexed owner, string name, uint256 createdDay)",
+    "event CheckedIn(uint256 indexed habitId, uint256 indexed day, uint256 streak)"
+  ];
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  let provider = null;
+  let signer = null;
+  let account = null;
+  let contractRO = null; // read-only via JsonRpc
+  let contractRW = null; // signer
+  let currentTab = "mine";
+  let currentDayCache = null;
+
+  const habitCache = new Map();      // id => struct
+  const gridCache  = new Map();      // id => { day0, arr }
+
+  // ============================================================
+  // UTIL
+  // ============================================================
+  const $ = (id) => document.getElementById(id);
+  const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
+
+  function toast(msg, kind) {
+    const t = document.createElement("div");
+    t.className = "toast" + (kind === "err" ? " err" : "");
+    t.textContent = msg;
+    $("toast-root").appendChild(t);
+    setTimeout(() => t.remove(), 4500);
+  }
+
+  function dayToISO(day) {
+    const ms = Number(day) * 86400 * 1000;
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+
+  function ensureRO() {
+    if (!contractRO) {
+      const p = new ethers.JsonRpcProvider(RPC_URL);
+      contractRO = new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+    }
+    return contractRO;
+  }
+
+  // ============================================================
+  // WALLET
+  // ============================================================
+  async function ensureChain() {
+    if (!window.ethereum) throw new Error("MetaMask not detected");
+    const cid = await window.ethereum.request({ method: "eth_chainId" });
+    if (cid.toLowerCase() === CHAIN_ID_HEX.toLowerCase()) return;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: CHAIN_ID_HEX }]
+      });
+    } catch (e) {
+      if (e.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: CHAIN_ID_HEX,
+            chainName: CHAIN_NAME,
+            nativeCurrency: NATIVE,
+            rpcUrls: [RPC_URL],
+            blockExplorerUrls: [EXPLORER]
+          }]
+        });
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  async function connect() {
+    try {
+      if (!window.ethereum) return toast("Install MetaMask", "err");
+      await ensureChain();
+      const bp = new ethers.BrowserProvider(window.ethereum);
+      await bp.send("eth_requestAccounts", []);
+      signer = await bp.getSigner();
+      account = await signer.getAddress();
+      provider = bp;
+      contractRW = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+      $("acct").textContent = short(account);
+      $("netpill").textContent = "TESTNET " + CHAIN_ID_DEC;
+      $("connectBtn").textContent = "CONNECTED";
+      toast("Wallet connected");
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      toast(e.message || "connect failed", "err");
+    }
+  }
+
+  window.ethereum && window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum && window.ethereum.on("chainChanged", () => location.reload());
+
+  // ============================================================
+  // DATA
+  // ============================================================
+  async function loadHabit(id) {
+    if (habitCache.has(id)) return habitCache.get(id);
+    const c = ensureRO();
+    const raw = await c.getHabit(id);
+    const h = {
+      id,
+      owner: raw[0],
+      name: raw[1],
+      description: raw[2],
+      createdDay: Number(raw[3]),
+      totalCheckIns: Number(raw[4]),
+      currentStreak: Number(raw[5]),
+      longestStreak: Number(raw[6]),
+      lastCheckInDay: Number(raw[7])
+    };
+    habitCache.set(id, h);
+    return h;
+  }
+
+  async function loadGrid(id, today) {
+    const cached = gridCache.get(id);
+    if (cached && cached.today === today) return cached;
+    const c = ensureRO();
+    const span = 364;
+    const start = today - span;
+    const arr = await c.getCheckIns(id, start, today);
+    const bools = arr.map(Boolean);
+    const entry = { day0: start, today, arr: bools };
+    gridCache.set(id, entry);
+    return entry;
+  }
+
+  async function refresh() {
+    const c = ensureRO();
+    const day = Number(await c.getCurrentDay());
+    currentDayCache = day;
+    const total = Number(await c.habitCount());
+    $("s_total").textContent = total;
+
+    let ids = [];
+    if (currentTab === "mine") {
+      if (!account) {
+        $("list").innerHTML = '<div class="empty">// CONNECT WALLET</div>';
+        $("s_mine").textContent = "—";
+        $("s_best").textContent = "—";
+        $("s_checkins").textContent = "—";
+        return;
+      }
+      ids = (await c.getHabitsByOwner(account)).map((n) => Number(n));
+    } else {
+      ids = (await c.getRecent(0, 50)).map((n) => Number(n));
+    }
+
+    // Load all habits in parallel
+    const habits = await Promise.all(ids.map(loadHabit));
+
+    // Aggregate stats
+    let totalCI = 0, bestMine = 0, mineCount = 0;
+    // Global check-in count needs all habits; we'll approximate over the loaded set for ALL tab,
+    // but for accuracy use just the mine set for mine.
+    if (currentTab === "mine") {
+      for (const h of habits) { totalCI += h.totalCheckIns; if (h.longestStreak > bestMine) bestMine = h.longestStreak; }
+      $("s_mine").textContent = habits.length;
+      $("s_best").textContent = bestMine;
+      $("s_checkins").textContent = totalCI;
+    } else {
+      // For ALL tab, still show user's stats from their own habits (extra RPC)
+      let mineIds = [];
+      if (account) {
+        mineIds = (await c.getHabitsByOwner(account)).map((n) => Number(n));
+        const mineH = await Promise.all(mineIds.map(loadHabit));
+        for (const h of mineH) { if (h.longestStreak > bestMine) bestMine = h.longestStreak; }
+        $("s_mine").textContent = mineH.length;
+        $("s_best").textContent = bestMine;
+      } else {
+        $("s_mine").textContent = "—";
+        $("s_best").textContent = "—";
+      }
+      // Total check-ins across shown list
+      let sum = 0; for (const h of habits) sum += h.totalCheckIns;
+      $("s_checkins").textContent = sum + (habits.length < total ? "+" : "");
+    }
+
+    // Render list
+    if (habits.length === 0) {
+      $("list").innerHTML = '<div class="empty">// NO HABITS YET</div>';
+      return;
+    }
+
+    $("list").innerHTML = "";
+    for (const h of habits) {
+      const el = renderHabitShell(h, day);
+      $("list").appendChild(el);
+    }
+
+    // Load grids in parallel (batched by contract)
+    for (const h of habits) {
+      loadGrid(h.id, day).then((g) => renderGridInto(h, g, day)).catch((e) => console.error(e));
+    }
+  }
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+  function renderHabitShell(h, today) {
+    const wrap = document.createElement("div");
+    wrap.className = "habit";
+    const isOwner = account && account.toLowerCase() === h.owner.toLowerCase();
+    const doneToday = h.lastCheckInDay === today && h.totalCheckIns > 0;
+
+    wrap.innerHTML = `
+      <div class="habit-head">
+        <div>
+          <div class="habit-name">${escapeHTML(h.name)}</div>
+          ${h.description ? `<div class="habit-desc">${escapeHTML(h.description)}</div>` : ""}
+          <div class="habit-owner">OWNER · ${short(h.owner)} · CREATED DAY ${h.createdDay}</div>
+        </div>
+        <div class="habit-actions">
+          ${isOwner ? (doneToday
+            ? '<button class="done" disabled>CHECKED IN TODAY</button>'
+            : `<button data-checkin="${h.id}">CHECK IN TODAY</button>`) : ""}
+        </div>
+      </div>
+      <div class="grid-wrap" data-grid="${h.id}">
+        <div style="color:var(--muted);font-size:11px;letter-spacing:0.08em;text-transform:uppercase">LOADING GRID…</div>
+      </div>
+      <div class="habit-stats">
+        <div class="habit-stat"><div class="lbl">Current Streak</div><div class="val">${h.currentStreak}</div></div>
+        <div class="habit-stat"><div class="lbl">Longest Streak</div><div class="val">${h.longestStreak}</div></div>
+        <div class="habit-stat"><div class="lbl">Total Check-Ins</div><div class="val">${h.totalCheckIns}</div></div>
+      </div>
+    `;
+
+    const btn = wrap.querySelector("[data-checkin]");
+    if (btn) btn.addEventListener("click", () => doCheckIn(h.id));
+
+    return wrap;
+  }
+
+  function shadeFor(streakAtDay) {
+    if (streakAtDay <= 0) return "var(--cell-0)";
+    if (streakAtDay < 3)  return "var(--cell-1)";
+    if (streakAtDay < 7)  return "var(--cell-2)";
+    if (streakAtDay < 14) return "var(--cell-3)";
+    return "var(--cell-4)";
+  }
+
+  function renderGridInto(h, g, today) {
+    const host = document.querySelector(`[data-grid="${h.id}"]`);
+    if (!host) return;
+    const arr = g.arr;
+    const day0 = g.day0;
+    const N = arr.length;
+
+    // Compute streak-at-each-day for shading
+    const shades = new Array(N);
+    let run = 0;
+    for (let i = 0; i < N; i++) {
+      if (arr[i]) { run += 1; shades[i] = run; }
+      else { run = 0; shades[i] = 0; }
+    }
+
+    // 7 rows x weeks columns
+    const cellSize = 11;
+    const gap = 2;
+    // Determine day-of-week of day0 (JS: 0=Sun ... 6=Sat). We render Sun on top.
+    const dow0 = new Date(day0 * 86400 * 1000).getUTCDay();
+    const totalCells = dow0 + N;
+    const weeks = Math.ceil(totalCells / 7);
+    const width = weeks * (cellSize + gap);
+    const height = 7 * (cellSize + gap);
+
+    let svg = `<svg class="grid-svg" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">`;
+    for (let i = 0; i < N; i++) {
+      const pos = dow0 + i;
+      const col = Math.floor(pos / 7);
+      const row = pos % 7;
+      const x = col * (cellSize + gap);
+      const y = row * (cellSize + gap);
+      const fill = shadeFor(shades[i]);
+      const dayIdx = day0 + i;
+      const iso = dayToISO(dayIdx);
+      const label = arr[i] ? "CHECKED" : "MISSED";
+      svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${fill}" stroke="#0a0a0a" stroke-width="1" data-tip="${iso} · ${label}" />`;
+    }
+    svg += `</svg>`;
+
+    const legend = `
+      <div class="grid-legend">
+        <span>LESS</span>
+        <div class="legend-swatch" style="background:var(--cell-0)"></div>
+        <div class="legend-swatch" style="background:var(--cell-1)"></div>
+        <div class="legend-swatch" style="background:var(--cell-2)"></div>
+        <div class="legend-swatch" style="background:var(--cell-3)"></div>
+        <div class="legend-swatch" style="background:var(--cell-4)"></div>
+        <span>MORE</span>
+        <span style="margin-left:auto">${dayToISO(day0)} → ${dayToISO(today)}</span>
+      </div>
+    `;
+
+    host.innerHTML = svg + legend;
+
+    // Tooltip bindings
+    host.querySelectorAll("rect[data-tip]").forEach((r) => {
+      r.addEventListener("mousemove", (e) => {
+        const tip = $("tooltip");
+        tip.textContent = r.getAttribute("data-tip");
+        tip.style.display = "block";
+        tip.style.left = (e.clientX + 12) + "px";
+        tip.style.top = (e.clientY + 12) + "px";
+      });
+      r.addEventListener("mouseleave", () => { $("tooltip").style.display = "none"; });
+    });
+  }
+
+  function escapeHTML(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[c]);
+  }
+
+  // ============================================================
+  // WRITES
+  // ============================================================
+  async function doCreate() {
+    if (!contractRW) { toast("Connect wallet first", "err"); return; }
+    const name = $("in_name").value.trim();
+    const desc = $("in_desc").value.trim();
+    if (name.length < 1 || name.length > 64) { toast("Name must be 1-64 chars", "err"); return; }
+    if (desc.length > 200) { toast("Description max 200 chars", "err"); return; }
+    try {
+      const fee = await contractRW.createFee();
+      $("createBtn").disabled = true;
+      const tx = await contractRW.createHabit(name, desc, { value: fee });
+      toast("Creating habit… tx sent");
+      await tx.wait();
+      $("in_name").value = ""; $("in_desc").value = "";
+      habitCache.clear(); gridCache.clear();
+      toast("Habit created");
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      toast(e.shortMessage || e.message || "create failed", "err");
+    } finally {
+      $("createBtn").disabled = false;
+    }
+  }
+
+  async function doCheckIn(id) {
+    if (!contractRW) { toast("Connect wallet first", "err"); return; }
+    try {
+      const tx = await contractRW.checkIn(id);
+      toast("Check-in tx sent");
+      await tx.wait();
+      habitCache.delete(id); gridCache.delete(id);
+      toast("Checked in ✓");
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      toast(e.shortMessage || e.message || "check-in failed", "err");
+    }
+  }
+
+  // ============================================================
+  // WIRE UP
+  // ============================================================
+  $("connectBtn").addEventListener("click", connect);
+  $("createBtn").addEventListener("click", doCreate);
+  document.querySelectorAll(".tab").forEach((t) => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+      t.classList.add("active");
+      currentTab = t.dataset.tab;
+      refresh();
+    });
+  });
+
+  $("foot_addr").textContent = "CONTRACT: " + CONTRACT_ADDRESS;
+
+  // Initial read-only load
+  (async () => {
+    try {
+      if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
+        $("list").innerHTML = '<div class="empty">// SET CONTRACT_ADDRESS IN INDEX.HTML</div>';
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      $("list").innerHTML = '<div class="empty">// RPC ERROR</div>';
+    }
+  })();
+</script>
+
+</body>
+</html>
