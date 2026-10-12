@@ -164,6 +164,47 @@
     .create-row { grid-template-columns: 1fr; }
     .create-row input { border-right: none; border-bottom: 1px solid var(--line); }
   }
+
+  /* ===== BOT Chain ecosystem footer (KPI 5) — ruled ledger block ===== */
+  /* display:block overrides this page's bare `footer { display:flex }` rule */
+  footer.bc-foot {
+    display: block; border-top: 3px solid var(--line); margin-top: 56px;
+    background: var(--paper); padding: 0; max-width: none;
+  }
+  .bc-foot-grid {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+    gap: 22px; padding: 22px 24px; border-bottom: 1px solid var(--line);
+  }
+  @media (max-width: 720px) {
+    .bc-foot-grid { grid-template-columns: 1fr; gap: 16px; text-align: left; }
+  }
+  .bc-foot .bc-logo {
+    flex-shrink: 0; border: 1px solid var(--line); padding: 9px 13px; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bc-foot .bc-logo svg { width: 20px; height: 32px; display: block; }
+  .bc-foot .bc-id {
+    font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 700;
+    color: var(--ink); letter-spacing: -0.02em; line-height: 1.25;
+  }
+  .bc-foot .bc-id small {
+    display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--muted); margin-top: 3px;
+  }
+  .bc-foot .bc-links { display: flex; gap: 0; flex-wrap: wrap; }
+  .bc-foot .bc-links a {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink);
+    text-decoration: none; padding: 9px 15px; border: 1px solid var(--line);
+    margin-left: -1px; background: var(--paper); transition: background .15s, color .15s;
+  }
+  .bc-foot .bc-links a:hover { background: var(--ink); color: var(--paper); }
+  .bc-foot .bc-meta {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 12px 24px; display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  }
+  .bc-foot .bc-meta b { color: var(--ink); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -216,17 +257,20 @@
   // ============================================================
   // CONFIG
   // ============================================================
-  const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const CONTRACT_ADDRESS = "0x656239Cd74195DD3342EbEc2a1abA7081401339f"; // BOT Chain mainnet 677
 
-  // TESTNET (default). To switch to mainnet, replace these 5 values:
-  //   CHAIN_ID_HEX = "0x2A5", CHAIN_ID_DEC = 677,
-  //   RPC_URL = "https://rpc.botchain.ai", CHAIN_NAME = "BOT Chain",
-  //   EXPLORER = "https://explorer.botchain.ai"
-  const CHAIN_ID_HEX = "0x3C8";
-  const CHAIN_ID_DEC = 968;
-  const RPC_URL = "https://rpc.bohr.life";
-  const CHAIN_NAME = "BOT Chain Testnet";
-  const EXPLORER = "https://explorer.bohr.life";
+  // MAINNET (live). Testnet fallbacks, if ever needed:
+  //   CHAIN_ID_HEX = "0x3C8", CHAIN_ID_DEC = 968,
+  //   RPC_URL = "https://rpc.bohr.life", CHAIN_NAME = "BOT Chain Testnet",
+  //   EXPLORER = "https://scan.bohr.life"
+  // NOTE: an earlier comment here said the mainnet explorer was
+  // explorer.botchain.ai. It is scan.botchain.ai — same host used by
+  // every live BOT Chain project frontend and the KPI asset pack.
+  const CHAIN_ID_HEX = "0x2A5";
+  const CHAIN_ID_DEC = 677;
+  const RPC_URL = "https://rpc.botchain.ai";
+  const CHAIN_NAME = "BOT Chain";
+  const EXPLORER = "https://scan.botchain.ai";
 
   const NATIVE = { name: "BOT", symbol: "BOT", decimals: 18 };
 
@@ -327,7 +371,7 @@
       provider = bp;
       contractRW = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
       $("acct").textContent = short(account);
-      $("netpill").textContent = "TESTNET " + CHAIN_ID_DEC;
+      $("netpill").textContent = "MAINNET " + CHAIN_ID_DEC;
       $("connectBtn").textContent = "CONNECTED";
       toast("Wallet connected");
       await refresh();
@@ -636,6 +680,29 @@
     }
   })();
 </script>
+
+<!-- ===== BOT Chain ecosystem footer (KPI 5) ===== -->
+<footer class="bc-foot">
+  <div class="bc-foot-grid">
+    <div class="bc-logo" aria-hidden="true">
+      <svg viewBox="0 0 63.63 100" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#00A67E" d="M31.67 99.95 L0 82.48 L0.11 63.74 L47.01 90.60 L47.01 73.19 L15.98 55.32 L15.95 36.49 L46.92 53.57 L47.39 36.82 L15.96 17.81 L16.26 0 L63.06 27.02 L62.82 46.20 L47.86 54.67 L62.85 63.00 L63.62 81.42 Z"/>
+      </svg>
+    </div>
+    <div class="bc-id">
+      BOT Chain
+      <small>Part of the ecosystem</small>
+    </div>
+    <div class="bc-links">
+      <a href="https://botchain.ai" target="_blank" rel="noopener noreferrer">botchain.ai</a>
+      <a href="https://scan.botchain.ai" target="_blank" rel="noopener noreferrer">Explorer</a>
+    </div>
+  </div>
+  <div class="bc-meta">
+    <span>&copy; 2026 <b>BOT Chain</b> &mdash; EVM-compatible Layer 1</span>
+    <span>Mainnet &middot; Chain ID <b>677</b></span>
+  </div>
+</footer>
 
 </body>
 </html>
